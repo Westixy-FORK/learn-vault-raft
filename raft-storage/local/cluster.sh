@@ -12,6 +12,15 @@
 # - This script supports Linux and macOS
 # - Linux support expects the 'ip' command instead of 'ifconfig' command
 
+
+# CHANGES FOR AWSKMS
+# 
+# you need:
+#  - access token for aws with kms:* action (AWS_ACCESS_KEY_ID & AWS_SECRET_ACCESS_KEY & AWS_REGION)
+#  - a kms key created on aws and KMS_KEY_ID environment variable set
+# the rest is the same as explained in readme
+# but unfortunatetly this is not working... maybe i missed something
+
 set -e
 
 demo_home="$(pwd)"
@@ -191,18 +200,18 @@ function clean {
       printf "\n%s" \
         "Removing local loopback address: $loopback_address (sudo required)" \
         ""
-        case "$os_name" in
-        darwin)
-          sudo ifconfig lo0 -alias $loopback_address
-          ;;
-        linux)
-          sudo ip addr del "$loopback_address"/8 dev lo
-          ;;
-        esac
+        # case "$os_name" in
+        # darwin)
+        #   sudo ifconfig lo0 -alias $loopback_address
+        #   ;;
+        # linuxx)
+        #   sudo ip addr del "$loopback_address"/8 dev lo
+        #   ;;
+        # esac
     fi
   done
 
-  for config_file in $demo_home/config-vault_1.hcl $demo_home/config-vault_2.hcl $demo_home/config-vault_3.hcl $demo_home/config-vault_4.hcl ; do
+  for config_file in $demo_home/config-vault_2.hcl $demo_home/config-vault_3.hcl $demo_home/config-vault_4.hcl ; do
     if [[ -f "$config_file" ]] ; then
       printf "\n%s" \
         "Removing configuration file $config_file"
@@ -221,7 +230,7 @@ function clean {
     fi
   done
 
-  for key_file in $demo_home/unseal_key-vault_1 $demo_home/recovery_key-vault_2 ; do
+  for key_file in $demo_home/recovery_key-vault_2 ; do
     if [[ -f "$key_file" ]] ; then
       printf "\n%s" \
         "Removing key $key_file"
@@ -230,7 +239,7 @@ function clean {
     fi
   done
 
-  for token_file in $demo_home/root_token-vault_1 $demo_home/root_token-vault_2 ; do
+  for token_file in  $demo_home/root_token-vault_2 ; do
     if [[ -f "$token_file" ]] ; then
       printf "\n%s" \
         "Removing key $token_file"
@@ -239,7 +248,7 @@ function clean {
     fi
   done
 
-  for vault_log in $demo_home/vault_1.log $demo_home/vault_2.log $demo_home/vault_3.log $demo_home/vault_4.log ; do
+  for vault_log in $demo_home/vault_2.log $demo_home/vault_3.log $demo_home/vault_4.log ; do
     if [[ -f "$vault_log" ]] ; then
       printf "\n%s" \
         "Removing log file $vault_log"
@@ -348,23 +357,23 @@ function create_network {
 
 function create_config {
 
-  printf "\n%s" \
-    "[vault_1] Creating configuration" \
-    "  - creating $demo_home/config-vault_1.hcl"
+#   printf "\n%s" \
+#     "[vault_1] Creating configuration" \
+#     "  - creating $demo_home/config-vault_1.hcl"
 
-  rm -f config-vault_1.hcl
+#   rm -f config-vault_1.hcl
 
-  tee "$demo_home"/config-vault_1.hcl 1> /dev/null <<EOF
-storage "inmem" {}
+#   tee "$demo_home"/config-vault_1.hcl 1> /dev/null <<EOF
+# storage "inmem" {}
 
-listener "tcp" {
-   address = "127.0.0.1:8200"
-   tls_disable = true
-}
+# listener "tcp" {
+#    address = "127.0.0.1:8200"
+#    tls_disable = true
+# }
 
-ui = true
-disable_mlock = true
-EOF
+# ui = true
+# disable_mlock = true
+# EOF
 
   printf "\n%s" \
     "[vault_2] Creating configuration" \
@@ -387,15 +396,9 @@ listener "tcp" {
    tls_disable = true
 }
 
-seal "transit" {
-   address            = "http://127.0.0.1:8200"
-   # token is read from VAULT_TOKEN env
-   # token              = ""
-   disable_renewal    = "false"
-
-   // Key configuration
-   key_name           = "unseal_key"
-   mount_path         = "transit/"
+seal "awskms" {
+  region     = "${AWS_REGION}"
+  kms_key_id = "${KMS_KEY_ID}"
 }
 
 ui = true
@@ -424,15 +427,9 @@ listener "tcp" {
    tls_disable = true
 }
 
-seal "transit" {
-   address            = "http://127.0.0.1:8200"
-   # token is read from VAULT_TOKEN env
-   # token              = ""
-   disable_renewal    = "false"
-
-   // Key configuration
-   key_name           = "unseal_key"
-   mount_path         = "transit/"
+seal "awskms" {
+  region     = "${AWS_REGION}"
+  kms_key_id = "${KMS_KEY_ID}"
 }
 
 ui = true
@@ -461,15 +458,9 @@ listener "tcp" {
    tls_disable = true
 }
 
-seal "transit" {
-   address            = "http://127.0.0.1:8200"
-   # token is read from VAULT_TOKEN env
-   # token              = ""
-   disable_renewal    = "false"
-
-   // Key configuration
-   key_name           = "unseal_key"
-   mount_path         = "transit/"
+seal "awskms" {
+  region     = "${AWS_REGION}"
+  kms_key_id = "${KMS_KEY_ID}"
 }
 
 ui = true
@@ -597,7 +588,7 @@ function create {
 function setup {
   case "$1" in
     vault_1)
-      setup_vault_1
+      echo no setup_vault_1
       ;;
     vault_2)
       setup_vault_2
@@ -609,7 +600,7 @@ function setup {
       setup_vault_4
       ;;
     all)
-      for vault_setup_function in setup_vault_1 setup_vault_2 setup_vault_3 setup_vault_4 ; do
+      for vault_setup_function in setup_vault_2 setup_vault_3 setup_vault_4 ; do
         $vault_setup_function
       done
       ;;
